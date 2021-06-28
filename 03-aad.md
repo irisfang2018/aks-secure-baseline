@@ -29,14 +29,29 @@ Following the steps below you will result in an Azure AD configuration that will
    ```bash
    az login -t <Replace-With-ClusterApi-AzureAD-TenantId> --allow-no-subscriptions
    TENANTID_K8SRBAC=$(az account show --query tenantId -o tsv)
+   echo $TENANTID_AZURERBAC
+   echo $TENANTID_K8SRBAC
    ```
-
+   If you have created a new Azure AD tenant, TENANTID_AZURERBAC and TENANTID_K8SRBAC are showing different vaules.
+   If your company have created an Azure AD group in the existing tenant, TENANTID_AZURERBAC and TENANTID_K8SRBAC are both set to the value of your company Azure AD tenant ID.
+   
 1. Create/identify the Azure AD security group that is going to map to the [Kubernetes Cluster Admin](https://kubernetes.io/docs/reference/access-authn-authz/rbac/#user-facing-roles) role `cluster-admin`.
 
    If you already have a security group that is appropriate for your cluster's admin service accounts, use that group and skip this step. If using your own group or your Azure AD administrator created one for you to use; you will need to update the group name and ID throughout the reference implementation.
 
    ```bash
-   export AADOBJECTID_GROUP_CLUSTERADMIN=$(az ad group create --display-name 'cluster-admins-bu0001a000800' --mail-nickname 'cluster-admins-bu0001a000800' --description "Principals in this group are cluster admins in the bu0001a000800 cluster." --query objectId -o tsv)
+   # Create Azure AD Group for Kubernetes RBAC (if you have created an Azure AD group, pls skip this)
+   export AADOBJECTNAME_GROUP_CLUSTERADMIN=cluster-admins-bu0001a000800
+   export AADOBJECTID_GROUP_CLUSTERADMIN=$(az ad group create --display-name $AADOBJECTNAME_GROUP_CLUSTERADMIN --mail-nickname $AADOBJECTNAME_GROUP_CLUSTERADMIN --description "Principals in this group are cluster admins in the bu0001a000800 cluster." --query objectId -o tsv)
+   echo $AADOBJECTNAME_GROUP_CLUSTERADMIN
+   echo $AADOBJECTID_GROUP_CLUSTERADMIN
+
+   # Query Azure AD Group for Kubernetes RBAC
+   export AADOBJECTNAME_GROUP_CLUSTERADMIN=cluster-admins-bu0001a000800
+   export AADOBJECTID_GROUP_CLUSTERADMIN=$(az ad group show --group $AADOBJECTNAME_GROUP_CLUSTERADMIN --query objectId --out tsv)
+   echo $AADOBJECTNAME_GROUP_CLUSTERADMIN
+   echo $AADOBJECTID_GROUP_CLUSTERADMIN
+ 
    ```
 
    This Azure AD group object ID will be used later while creating the cluster. This way, once the cluster gets deployed the new group will get the proper Cluster Role bindings in Kubernetes.
@@ -47,8 +62,21 @@ Following the steps below you will result in an Azure AD configuration that will
 
    ```bash
    export TENANTDOMAIN_K8SRBAC=$(az ad signed-in-user show --query 'userPrincipalName' -o tsv | cut -d '@' -f 2 | sed 's/\"//')
+   echo $TENANTDOMAIN_K8SRBAC
+
+   # Create Azure AD User for Kubernetes RBAC (if you have created an Azure AD User, pls skip this)
    export AADOBJECTNAME_USER_CLUSTERADMIN=bu0001a000800-admin
    export AADOBJECTID_USER_CLUSTERADMIN=$(az ad user create --display-name=${AADOBJECTNAME_USER_CLUSTERADMIN} --user-principal-name ${AADOBJECTNAME_USER_CLUSTERADMIN}@${TENANTDOMAIN_K8SRBAC} --force-change-password-next-login --password ChangeMebu0001a0008AdminChangeMe --query objectId -o tsv)
+   echo $AADOBJECTNAME_USER_CLUSTERADMIN
+   echo $AADOBJECTID_USER_CLUSTERADMIN
+
+   # Query Azure AD User for Kubernetes RBAC
+   export AADOBJECTNAME_USER_CLUSTERADMIN=bu0001a000800-admin
+   export AADOBJECTID_USER_CLUSTERADMIN=$(az ad user show --id ${AADOBJECTNAME_USER_CLUSTERADMIN}@${TENANTDOMAIN_K8SRBAC} --query objectId -o tsv)
+   echo $AADOBJECTNAME_USER_CLUSTERADMIN
+   echo $AADOBJECTID_USER_CLUSTERADMIN
+
+
    ```
 
 1. Add the cluster admin user(s) to the cluster admin security group.
