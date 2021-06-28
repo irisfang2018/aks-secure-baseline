@@ -93,6 +93,24 @@ Following the steps below you will result in an Azure AD configuration that will
    export AADOBJECTID_GROUP_A0008_READER=$(az ad group create --display-name 'cluster-ns-a0008-readers-bu0001a000800' --mail-nickname 'cluster-ns-a0008-readers-bu0001a000800' --description "Principals in this group are readers of namespace a0008 in the bu0001a000800 cluster." --query objectId -o tsv)
    ```
 
+1. Now please update the values for those variables in the variables.txt file: Since you have git cloned the repo to your cloud shell, you will update this file there. You can input "Code variables.txt" to edit the file. After you get all variables set correctly, pls copy all commandlines from the variables.txt and run in the cloud shell:
+
+   ```bash
+   echo "Exporting environment variables"
+  
+   export AADOBJECTID_GROUP_CLUSTERADMIN='please replace with your values'
+   export TENANTID_K8SRBAC='please replace with your values'
+   export TENANTID_AZURERBAC='please replace with your values'
+   export AADOBJECTID_GROUP_A0008_READER='please replace with your values'
+
+
+   echo $AADOBJECTNAME_GROUP_CLUSTERADMIN
+   echo $TENANTID_K8SRBAC
+   echo $TENANTID_AZURERBAC
+   echo $AADOBJECTID_GROUP_A0008_READER
+ 
+   ```
+
 ## Kubernetes RBAC backing store
 
 AKS supports backing Kubernetes with Azure AD in two different modalities. One is direct association between Azure AD and Kubernetes `ClusterRoleBindings`/`RoleBindings` in the cluster. This is possible no matter if the Azure AD tenant you wish to use to back your Kubernetes RBAC is the same or different than the Tenant backing your Azure resources. If however the tenant that is backing your Azure resources (Azure RBAC source) is the same tenant you plan on using to back your Kubernetes RBAC, then instead you can add a layer of indirection between Azure AD and your cluster by using Azure RBAC instead of direct cluster `RoleBinding` manipulation.  When performing this walkthrough, you may have had no choice but to associate the cluster with another tenant (due to the elevated permissions necessary in Azure AD to manage groups and users); but when you take this to production be sure you're using Azure RBAC as your Kubernetes RBAC backing store if the tenants are the same. Both cases still leverage integrated authentication between Azure AD and AKS, Azure RBAC simply elevates this control to Azure RBAC instead of direct yaml-based management within the cluster which usually will align better with your organization's governance strategy.
