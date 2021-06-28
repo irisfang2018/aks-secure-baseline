@@ -12,7 +12,8 @@ Now that the [hub-spoke network is provisioned](./04-networking.md), the next st
 
    ```bash
    # [This takes less than one minute.]
-   az group create --name rg-bu0001a0008 --location eastus2
+   echo $aks
+   az group create --name $aks --location eastus2
    ```
 
 1. Get the AKS cluster spoke VNet resource ID.
@@ -20,14 +21,34 @@ Now that the [hub-spoke network is provisioned](./04-networking.md), the next st
    > :book: The app team will be deploying to a spoke VNet, that was already provisioned by the network team.
 
    ```bash
-   RESOURCEID_VNET_CLUSTERSPOKE=$(az deployment group show -g rg-enterprise-networking-spokes -n spoke-BU0001A0008 --query properties.outputs.clusterVnetResourceId.value -o tsv)
+   RESOURCEID_VNET_CLUSTERSPOKE=$(az deployment group show -g $spokes -n spoke-BU0001A0008 --query properties.outputs.clusterVnetResourceId.value -o tsv)
    ```
 
 1. Deploy the cluster ARM template.  
   :exclamation: By default, this deployment will allow unrestricted access to your cluster's API Server.  You can limit access to the API Server to a set of well-known IP addresses (i.,e. a jump box subnet (connected to by Azure Bastion), build agents, or any other networks you'll administer the cluster from) by setting the `clusterAuthorizedIPRanges` parameter in all deployment options.  
 
     **Option 1 - Deploy from the command line**
+   Before you try to deploy the AKS resources, please check all parameters have been set correctly.
+      
+      ```bash
+      echo ${RESOURCEID_VNET_CLUSTERSPOKE} 
+      echo ${AADOBJECTID_GROUP_CLUSTERADMIN}
+      echo ${TENANTID_K8SRBAC}
+      echo ${APP_GATEWAY_LISTENER_CERTIFICATE}
+      echo ${AKS_INGRESS_CONTROLLER_CERTIFICATE_BASE64}
+      echo ${AADOBJECTID_GROUP_A0008_READER}
 
+      ```
+   
+   If you find that certificate is empty, you can run the following commands:
+      
+      ```bash
+      export APP_GATEWAY_LISTENER_CERTIFICATE=$(cat appgw.pfx | base64 | tr -d '\n')
+      export AKS_INGRESS_CONTROLLER_CERTIFICATE_BASE64=$(cat traefik-ingress-internal-aks-ingress-contoso-com-tls.crt | base64 | tr -d '\n')
+      echo ${APP_GATEWAY_LISTENER_CERTIFICATE}
+      echo ${AKS_INGRESS_CONTROLLER_CERTIFICATE_BASE64}
+      ````
+   
    ```bash
    # [This takes about 15 minutes.]
    az deployment group create -g rg-bu0001a0008 -f cluster-stamp.json -p targetVnetResourceId=${RESOURCEID_VNET_CLUSTERSPOKE} clusterAdminAadGroupObjectId=${AADOBJECTID_GROUP_CLUSTERADMIN} a0008NamespaceReaderAadGroupObjectId=${AADOBJECTID_GROUP_A0008_READER} k8sControlPlaneAuthorizationTenantId=${TENANTID_K8SRBAC} appGatewayListenerCertificate=${APP_GATEWAY_LISTENER_CERTIFICATE} aksIngressControllerCertificate=${AKS_INGRESS_CONTROLLER_CERTIFICATE_BASE64}
