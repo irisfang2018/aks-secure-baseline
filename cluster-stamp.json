@@ -36,7 +36,7 @@
         "aksIngressControllerCertificate": {
             "type": "string",
             "metadata": {
-                "description": "The base 64 encoded AKS Ingress Controller public certificate (as .crt or .cer) to be stored in Azure Key Vault as secret and referenced by Azure Application Gateway as a trusted root certificate."
+                "description": "The Base64 encoded AKS Ingress Controller public certificate (as .crt or .cer) to be stored in Azure Key Vault as secret and referenced by Azure Application Gateway as a trusted root certificate."
             }
         },
         "clusterAuthorizedIPRanges": {
@@ -101,7 +101,7 @@
             }
         },
         "kubernetesVersion": {
-            "defaultValue": "1.20.7",
+            "defaultValue": "1.21.2",
             "type": "string"
         }
     },
@@ -129,7 +129,6 @@
         "vnetIngressServicesSubnetResourceId": "[concat(parameters('targetVnetResourceId'), '/subnets/snet-cluster-ingressservices')]",
 
         "agwName": "[concat('apw-', variables('clusterName'))]",
-        "apwResourceId": "[resourceId('Microsoft.Network/applicationGateways', variables('agwName'))]",
 
         "acrPrivateDnsZonesName": "privatelink.azurecr.io",
         "akvPrivateDnsZonesName": "privatelink.vaultcore.azure.net",
@@ -254,9 +253,9 @@
                     }
                 },
                 {
-                    "name": "Microsoft.Insights/default",
                     "type": "providers/diagnosticSettings",
                     "apiVersion": "2017-05-01-preview",
+                    "name": "Microsoft.Insights/default",
                     "dependsOn": [
                         "[resourceId('Microsoft.KeyVault/vaults', variables('keyVaultName'))]",
                         "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
@@ -495,7 +494,7 @@
                 ],
                 "frontendPorts": [
                     {
-                        "name": "apw-frontend-ports",
+                        "name": "port-443",
                         "properties": {
                             "port": 443
                         }
@@ -509,7 +508,10 @@
                     "enabled": true,
                     "firewallMode": "Prevention",
                     "ruleSetType": "OWASP",
-                    "ruleSetVersion": "3.0"
+                    "ruleSetVersion": "3.2",
+                    "exclusions": [],
+                    "fileUploadLimitInMb": 10,
+                    "disabledRuleGroups": []
                 },
                 "enableHttp2": false,
                 "sslCertificates": [
@@ -558,11 +560,11 @@
                             "pickHostNameFromBackendAddress": true,
                             "requestTimeout": 20,
                             "probe": {
-                                "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('agwName')), '/probes/probe-bu0001a0008-00.aks-ingress.contoso.com')]"
+                                "id": "[resourceId('Microsoft.Network/applicationGateways/probes', variables('agwName'), 'probe-bu0001a0008-00.aks-ingress.contoso.com')]"
                             },
                             "trustedRootCertificates": [
                                 {
-                                    "id": "[concat(resourceId('Microsoft.Network/applicationGateways', variables('agwName')), '/trustedRootCertificates/root-cert-wildcard-aks-ingress-contoso')]"
+                                    "id": "[resourceId('Microsoft.Network/applicationGateways/trustedRootCertificates', variables('agwName'), 'root-cert-wildcard-aks-ingress-contoso')]"
                                 }
                             ]
                         }
@@ -573,18 +575,17 @@
                         "name": "listener-https",
                         "properties": {
                             "frontendIPConfiguration": {
-                                "id": "[concat(variables('apwResourceId'), '/frontendIPConfigurations/apw-frontend-ip-configuration')]"
+                                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', variables('agwName'), 'apw-frontend-ip-configuration')]"
                             },
                             "frontendPort": {
-                                "id": "[concat(variables('apwResourceId'), '/frontendPorts/apw-frontend-ports')]"
+                                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', variables('agwName'), 'port-443')]"
                             },
                             "protocol": "Https",
                             "sslCertificate": {
-                                "id": "[concat(variables('apwResourceId'), '/sslCertificates/', variables('agwName'), '-ssl-certificate')]"
+                                "id": "[resourceId('Microsoft.Network/applicationGateways/sslCertificates', variables('agwName'),  concat(variables('agwName'), '-ssl-certificate'))]"
                             },
                             "hostName": "bicycle.contoso.com",
-                            "hostNames": [
-                            ],
+                            "hostNames": [],
                             "requireServerNameIndication": true
                         }
                     }
@@ -595,13 +596,13 @@
                         "properties": {
                             "RuleType": "Basic",
                             "httpListener": {
-                                "id": "[concat(variables('apwResourceId'), '/httpListeners/listener-https')]"
+                                "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', variables('agwName'), 'listener-https')]"
                             },
                             "backendAddressPool": {
-                                "id": "[concat(variables('apwResourceId'), '/backendAddressPools/bu0001a0008-00.aks-ingress.contoso.com')]"
+                                "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', variables('agwName'), 'bu0001a0008-00.aks-ingress.contoso.com')]"
                             },
                             "backendHttpSettings": {
-                                "id": "[concat(variables('apwResourceId'), '/backendHttpSettingsCollection/aks-ingress-contoso-backendpool-httpsettings')]"
+                                "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', variables('agwName'), 'aks-ingress-contoso-backendpool-httpsettings')]"
                             }
                         }
                     }
@@ -611,7 +612,7 @@
                 {
                     "type": "providers/diagnosticSettings",
                     "apiVersion": "2017-05-01-preview",
-                    "name": "/Microsoft.Insights/default",
+                    "name": "Microsoft.Insights/default",
                     "dependsOn": [
                         "[resourceId('Microsoft.Network/applicationGateways', variables('agwName'))]",
                         "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
@@ -1157,7 +1158,8 @@
                     "enabled": false, /* This feature is currently in preview and will eventually replace the aad-pod-identity configuration set up by hand in this reference implementation */
                     "userAssignedIdentities": [],
                     "userAssignedIdentityExceptions": []
-                }
+                },
+                "disableLocalAccounts": true
             },
             "identity": {
                 "type": "UserAssigned",
@@ -1167,9 +1169,9 @@
             },
             "resources": [
                 {
-                    "name": "[concat('Microsoft.Authorization/', guid(resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName')), 'omsagent', variables('monitoringMetricsPublisherRole')))]",
                     "type": "providers/roleAssignments",
                     "apiVersion": "2020-04-01-preview",
+                    "name": "[concat('Microsoft.Authorization/', guid(resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName')), 'omsagent', variables('monitoringMetricsPublisherRole')))]",
                     "comments": "Grant the OMS Agent's Managed Identity the metrics publisher role to push alerts",
                     "dependsOn": [
                         "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]"
@@ -1181,7 +1183,7 @@
                     }
                 },
                 {
-                    "type": "/providers/diagnosticSettings",
+                    "type": "providers/diagnosticSettings",
                     "apiVersion": "2017-05-01-preview",
                     "name": "Microsoft.Insights/default",
                     "dependsOn": [
@@ -1213,10 +1215,50 @@
             ]
         },
         {
+            "type": "Microsoft.EventGrid/systemTopics",
+            "apiVersion": "2020-10-15-preview",
+            "name": "[variables('clusterName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]"
+            ],
+            "properties": {
+                
+                "source": "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
+                "topicType": "Microsoft.ContainerService.ManagedClusters"
+            },
+            "resources": [
+                {
+                    "type": "providers/diagnosticSettings",
+                    "apiVersion": "2017-05-01-preview",
+                    "name": "Microsoft.Insights/default",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.EventGrid/systemTopics', variables('clusterName'))]",
+                        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]"
+                    ],
+                    "properties": {
+                        "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logAnalyticsWorkspaceName'))]",
+                        "logs": [
+                            {
+                                "category": "DeliveryFailures",
+                                "enabled": true
+                            }
+                        ],
+                        "metrics": [
+                            {
+                                "category": "AllMetrics",
+                                "enabled": true
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Node CPU utilization high for ', variables('clusterName'), ' CI-1')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1260,9 +1302,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Node working set memory utilization high for ', variables('clusterName'), ' CI-2')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1306,9 +1348,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Jobs completed more than 6 hours ago for ', variables('clusterName'), ' CI-11')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1359,9 +1401,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Container CPU usage high for ', variables('clusterName'), ' CI-9')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1412,9 +1454,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Container working set memory usage high for ', variables('clusterName'), ' CI-10')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1465,9 +1507,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Pods in failed state for ', variables('clusterName'), ' CI-4')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1511,9 +1553,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Disk usage high for ', variables('clusterName'), ' CI-5')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1564,9 +1606,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Nodes in not ready status for ', variables('clusterName'), ' CI-3')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1610,9 +1652,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Containers getting OOM killed for ', variables('clusterName'), ' CI-6')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1663,9 +1705,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Persistent volume usage high for ', variables('clusterName'), ' CI-18')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1716,9 +1758,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Pods not in ready state for ', variables('clusterName'), ' CI-8')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1769,9 +1811,9 @@
         },
         {
             "type": "Microsoft.Insights/metricAlerts",
-            "location": "global",
             "apiVersion": "2018-03-01",
             "name": "[concat('Restarting container count for ', variables('clusterName'), ' CI-7')]",
+            "location": "global",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]",
                 "[resourceId('Microsoft.OperationsManagement/solutions',variables('containerInsightsSolutionName'))]"
@@ -1824,7 +1866,7 @@
             "condition": "[variables('isUsingAzureRBACasKubernetesRBAC')]",
             "type": "Microsoft.Authorization/roleAssignments",
             "apiVersion": "2018-09-01-preview",
-            "name": "[guid(concat('aad-admin-group', resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))))]",
+            "name": "[guid('aad-admin-group', resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName')), parameters('clusterAdminAadGroupObjectId'))]",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]"
             ],
@@ -1839,7 +1881,7 @@
             "condition": "[variables('isUsingAzureRBACasKubernetesRBAC')]",
             "type": "Microsoft.Authorization/roleAssignments",
             "apiVersion": "2018-09-01-preview",
-            "name": "[guid(concat('aad-admin-group-sc', resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))))]",
+            "name": "[guid('aad-admin-group-sc', resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName')), parameters('clusterAdminAadGroupObjectId'))]",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]"
             ],
@@ -1851,10 +1893,10 @@
             }
         },
         {
-            "condition": "[variables('isUsingAzureRBACasKubernetesRBAC')]",
+            "condition": "[and(variables('isUsingAzureRBACasKubernetesRBAC'), not(equals(parameters('a0008NamespaceReaderAadGroupObjectId'), parameters('clusterAdminAadGroupObjectId'))))]",
             "type": "Microsoft.Authorization/roleAssignments",
             "apiVersion": "2018-09-01-preview",
-            "name": "[guid(concat('aad-a0008-reader-group', resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))))]",
+            "name": "[guid('aad-a0008-reader-group', resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName')), parameters('a0008NamespaceReaderAadGroupObjectId'))]",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]"
             ],
@@ -1866,10 +1908,10 @@
             }
         },
         {
-            "condition": "[variables('isUsingAzureRBACasKubernetesRBAC')]",
+            "condition": "[and(variables('isUsingAzureRBACasKubernetesRBAC'), not(equals(parameters('a0008NamespaceReaderAadGroupObjectId'), parameters('clusterAdminAadGroupObjectId'))))]",
             "type": "Microsoft.Authorization/roleAssignments",
             "apiVersion": "2018-09-01-preview",
-            "name": "[guid(concat('aad-a0008-reader-group-sc', resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))))]",
+            "name": "[guid('aad-a0008-reader-group-sc', resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName')), parameters('a0008NamespaceReaderAadGroupObjectId'))]",
             "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', variables('clusterName'))]"
             ],
@@ -2040,10 +2082,6 @@
         "aksClusterName": {
             "type": "string",
             "value": "[variables('clusterName')]"
-        },
-        "agwName": {
-            "type": "string",
-            "value": "[variables('agwName')]"
         },
         "aksIngressControllerPodManagedIdentityResourceId": {
             "type": "string",
