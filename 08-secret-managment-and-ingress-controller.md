@@ -64,7 +64,7 @@ Previously you have configured [workload prerequisites](./07-workload-prerequisi
    apiVersion: secrets-store.csi.x-k8s.io/v1alpha1
    kind: SecretProviderClass
    metadata:
-     name: aks-ingress-contoso-com-tls-secret-csi-akv
+     name: aks-ingress-tls-secret-csi-akv
      namespace: a0008
    spec:
      provider: azure
